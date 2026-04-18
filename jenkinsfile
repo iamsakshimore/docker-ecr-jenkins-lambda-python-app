@@ -11,10 +11,11 @@ pipeline {
     stages {
 
         stage('Clone Code') {
-            steps {
-                git 'https://github.com/iamsakshimore/docker-ecr-jenkins-lambda-python-app.git'
-            }
-        }
+        steps {
+        git branch: 'main', 
+        url: 'https://github.com/iamsakshimore/docker-ecr-jenkins-lambda-python-app.git'
+    }
+}
 
         stage('Build Docker Image') {
             steps {
