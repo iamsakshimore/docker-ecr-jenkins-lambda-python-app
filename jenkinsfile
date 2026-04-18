@@ -12,7 +12,7 @@ pipeline {
 
         stage('Clone Code') {
             steps {
-                git 'https://github.com/YOUR_USERNAME/YOUR_REPO.git'
+                git 'https://github.com/iamsakshimore/docker-ecr-jenkins-lambda-python-app.git'
             }
         }
 
@@ -24,11 +24,14 @@ pipeline {
 
         stage('Login to ECR') {
             steps {
-                sh '''
-                aws ecr get-login-password --region $AWS_REGION | \
-                docker login --username AWS \
-                --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-                '''
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                credentialsId: 'aws-creds']]) {
+                    sh '''
+                    aws ecr get-login-password --region $AWS_REGION | \
+                    docker login --username AWS \
+                    --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    '''
+                }
             }
         }
 
@@ -53,11 +56,7 @@ pipeline {
 
     post {
         success {
-            sh '''
-            aws lambda invoke \
-            --function-name ecr-image-handler \
-            --payload '{"image":"'$IMAGE_TAG'"}' response.json
-            '''
+            echo "Image pushed successfully → Lambda will trigger via EventBridge"
         }
     }
 }
