@@ -8,7 +8,7 @@ pipeline {
     environment {
         AWS_REGION = "us-east-1"
         ACCOUNT_ID = "492711554489"
-        ECR_REPO = "devops-demo"
+        ECR_REPO = "492711554489.dkr.ecr.us-east-1.amazonaws.com/devops-demo"
         IMAGE_TAG = "latest"
         ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
     }
