@@ -1,29 +1,34 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true)
+    }
+
     environment {
-        AWS_REGION = 'ap-south-1'
-        ACCOUNT_ID = 'YOUR_ACCOUNT_ID'
-        REPO_NAME = 'devops-demo'
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        AWS_REGION = "us-east-1"
+        ACCOUNT_ID = "492711554489"
+        ECR_REPO = "devops-demo"
+        IMAGE_TAG = "latest"
+        ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
     }
 
     stages {
 
-        stage('Clone Code') {
-        steps {
-        git branch: 'main', 
-        url: 'https://github.com/iamsakshimore/docker-ecr-jenkins-lambda-python-app.git'
-    }
-}
-
-        stage('Build Docker Image') {
+        stage('Checkout') {
             steps {
-                sh 'docker build -t devops-demo .'
+                git branch: 'main',
+                url: 'https://github.com/iamsakshimore/docker-ecr-jenkins-lambda-python-app.git'
             }
         }
 
-        stage('Login to ECR') {
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t devops-demo:latest .'
+            }
+        }
+
+        stage('Login ECR') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
                 credentialsId: 'aws-creds']]) {
@@ -40,7 +45,7 @@ pipeline {
             steps {
                 sh '''
                 docker tag devops-demo:latest \
-                $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO_NAME:$IMAGE_TAG
+                $ECR_URI:$IMAGE_TAG
                 '''
             }
         }
@@ -48,8 +53,7 @@ pipeline {
         stage('Push Image') {
             steps {
                 sh '''
-                docker push \
-                $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPO_NAME:$IMAGE_TAG
+                docker push $ECR_URI:$IMAGE_TAG
                 '''
             }
         }
