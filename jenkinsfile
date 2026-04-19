@@ -8,7 +8,7 @@ pipeline {
     environment {
         AWS_REGION = "us-east-1"
         ACCOUNT_ID = "492711554489"
-        ECR_REPO = "492711554489.dkr.ecr.us-east-1.amazonaws.com/devops-demo"
+        ECR_REPO = "devops-demo"
         IMAGE_TAG = "latest"
         ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
     }
@@ -28,11 +28,17 @@ pipeline {
             }
         }
 
-        stage('Login ECR') {
+        stage('Login to ECR') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
-                credentialsId: 'aws-creds']]) {
+                withCredentials([usernamePassword(
+                    credentialsId: 'aws-creds',
+                    usernameVariable: 'AWS_ACCESS_KEY_ID',
+                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                )]) {
                     sh '''
+                    export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                    export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
                     aws ecr get-login-password --region $AWS_REGION | \
                     docker login --username AWS \
                     --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
@@ -41,7 +47,7 @@ pipeline {
             }
         }
 
-        stage('Tag Image') {
+        stage('Tag Docker Image') {
             steps {
                 sh '''
                 docker tag devops-demo:latest \
@@ -50,7 +56,7 @@ pipeline {
             }
         }
 
-        stage('Push Image') {
+        stage('Push to ECR') {
             steps {
                 sh '''
                 docker push $ECR_URI:$IMAGE_TAG
@@ -61,7 +67,10 @@ pipeline {
 
     post {
         success {
-            echo "Image pushed successfully → Lambda will trigger via EventBridge"
+            echo "✅ Image pushed successfully → Lambda will trigger via EventBridge"
+        }
+        failure {
+            echo "❌ Pipeline failed — check logs"
         }
     }
 }
