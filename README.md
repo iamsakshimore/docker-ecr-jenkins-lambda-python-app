@@ -59,7 +59,7 @@ docker-ecr-jenkins-lambda/
 ---
 #### Instance Configuration
 - Name: Jenkins Server
-- AMI: Ubuntu 22.04
+- AMI: Ubuntu 
 - Instance Type: t2.micro
 
 **Security Group Ports:**
@@ -104,7 +104,7 @@ sudo systemctl enable jenkins
 ```
 Access Jenkins
 ```
-Navigate to: http://EC2_PUBLIC_IP:8080
+ http://EC2_PUBLIC_IP:8080
 ```
 Get initial password:
 ```
@@ -173,6 +173,7 @@ repository
 ---
 ### Application Running
 ---
+ **EC2_PUBLIC_IP:5000**
 ![alt text](<images/application deploy.png>)
 ---
 ### SNS notifications
