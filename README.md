@@ -1,223 +1,180 @@
-# Automated Docker Image Deployment to AWS ECR with Jenkins & Lambda
+# Automated Docker Image Deployment to Amazon ECR with Jenkins and Lambda Integration
 
-##  Project Overview
+## Project Overview
+This project demonstrates a complete CI/CD pipeline for containerized applications using Docker, Jenkins, and AWS services. The pipeline automatically builds a Docker image, pushes it to Amazon ECR, and triggers an AWS Lambda function to perform post-deployment tasks such as logging metadata to DynamoDB and sending SNS notifications.
 
-This project implements a complete **CI/CD pipeline** that:
-
-* Builds a Docker image using Jenkins
-* Pushes the image to Amazon ECR
-* Triggers AWS Lambda via EventBridge
-* Stores metadata in DynamoDB
-* Sends notification via SNS
+The goal of this project is to understand DevOps automation, container registry management, and event-driven serverless workflows on AWS.
 
 ---
 
-##  Architecture
-
+## Architecture Diagram
 ```
-Jenkins → Docker Build → Amazon ECR → EventBridge → AWS Lambda → DynamoDB + SNS
+Developer → GitHub → Jenkins (EC2) → Docker Build → Amazon ECR → EventBridge → AWS Lambda → DynamoDB + SNS
 ```
-
 ---
+## Pipeline Flow
 
+- Developer pushes application code to GitHub
+- Jenkins pipeline is triggered automatically
+- Jenkins pulls the latest code from GitHub
+- Jenkins builds the Docker image using Dockerfile
+- The image is tagged with a build number
+- Jenkins authenticates with Amazon ECR
+ - The Docker image is pushed to ECR
+- Amazon EventBridge detects the image push event
+- EventBridge triggers an AWS Lambda function
+- Lambda logs the image metadata to DynamoDB
+- SNS notification is sent for deployment 
+
+--- 
 ## Technologies Used
+- Docker - Containerization
+- Jenkins - CI/CD Pipeline
+- Amazon EC2 - Jenkins Server
+- Amazon ECR - Container Registry
+- AWS Lambda - Serverless Processing
+- Amazon EventBridge - Event Management
+- Amazon DynamoDB - Metadata Storage
+- Amazon SNS - Notifications
+- GitHub - Source Code Management
+- Python Flask - Sample Application
 
-* Jenkins (CI/CD)
-* Docker
-* AWS ECR (Elastic Container Registry)
-* AWS Lambda
-* AWS DynamoDB
-* AWS SNS (Simple Notification Service)
-* AWS IAM
-
+## Project Structure
+```
+docker-ecr-jenkins-lambda/
+│
+├── app.py
+│   
+│
+├── Dockerfile
+│
+├── Jenkinsfile
+│
+├── lambda_function.py
+│    
+└── README.md
+```
 ---
-
-##  Prerequisites
-
-* AWS Account
-* Jenkins installed on EC2
-* Docker installed
-* AWS CLI configured
-* IAM role with required permissions
-
+### Step 1: Launch Jenkins Server (EC2)
 ---
+#### Instance Configuration
+- Name: Jenkins Server
+- AMI: Ubuntu 22.04
+- Instance Type: t2.micro
 
-## 📦 Step 1: Docker Setup
+**Security Group Ports:**
+- Port 22: SSH
+- Port 8080: Jenkins
+- Port 5000: Flask App
 
-### Sample Dockerfile
-
-```dockerfile
-FROM python:3.9-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 5000
-
-CMD ["gunicorn", "-b", "0.0.0.0:5000", "app:app"]
+**Connect to Instance**
+```
+ssh -i key.pem ubuntu@EC2_PUBLIC_IP
+```
+---
+### Step 2: Install Jenkins
+---
+Update System
+```
+sudo apt update
+```
+Install Java
+```
+sudo apt install openjdk-17-jdk -y
 ```
 
----
-
-## 🔄 Step 2: Jenkins Pipeline
-
-### Jenkinsfile
-
+Install Jenkins
 ```
-pipeline {
-    agent any
-
-    options {
-        skipDefaultCheckout(true)
-    }
-
-    environment {
-        AWS_REGION = "us-east-1"
-        ACCOUNT_ID = "492711554489"
-        ECR_REPO = "devops-demo"
-        IMAGE_TAG = "latest"
-        ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
-    }
-
-    stages {
-
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                url: 'https://github.com/iamsakshimore/docker-ecr-jenkins-lambda-python-app.git'
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                sh 'docker build -t devops-demo:latest .'
-            }
-        }
-
-        stage('Login to ECR') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
-                    sh '''
-                    export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-                    export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-
-                    aws ecr get-login-password --region $AWS_REGION | \
-                    docker login --username AWS \
-                    --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-                    '''
-                }
-            }
-        }
-
-        stage('Tag Docker Image') {
-            steps {
-                sh '''
-                docker tag devops-demo:latest \
-                $ECR_URI:$IMAGE_TAG
-                '''
-            }
-        }
-
-        stage('Push to ECR') {
-            steps {
-                sh '''
-                docker push $ECR_URI:$IMAGE_TAG
-                '''
-            }
-        }
-    }
-
-    post {
-        success {
-            echo "✅ Image pushed successfully → Lambda will trigger via EventBridge"
-        }
-        failure {
-            echo "❌ Pipeline failed — check logs"
-        }
-    }
-}
+curl -fsSL https://pkg.jenkins.io/debian/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
 
 ```
 
+```
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian binary/ | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+```
+
+```
+sudo apt update
+sudo apt install jenkins -y
+```
+Start Jenkins
+```
+sudo systemctl start jenkins
+sudo systemctl enable jenkins
+```
+Access Jenkins
+```
+Navigate to: http://EC2_PUBLIC_IP:8080
+```
+Get initial password:
+```
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+```
 ---
-
-## ⚡ Step 3: AWS Lambda Function
-
-### Python Code
-
-```python
-`
-
-## 🗄️ Step 4: DynamoDB Configuration
-
-* Table Name: `ImageLogs`
-* Partition Key: `image_tag` (String)
-
+### Step 3: Install Docker
 ---
-
-## 📡 Step 5: SNS Notification
-
-1. Create SNS Topic
-2. Add Email Subscription
-3. Confirm Email
-4. Add Topic ARN in Lambda
-
+```
+sudo apt install docker.io -y
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+```
 ---
-
-## 🔔 Step 6: EventBridge Rule
-
-* Source: `aws.ecr`
-* Event Type: Image Push
-* Target: Lambda Function
-
+### Step 4: Install AWS CLI
 ---
-
-## 🔐 IAM Permissions Required
-
-### Lambda Role:
-
-* DynamoDB: `PutItem`
-* SNS: `Publish`
-
-### Jenkins IAM User:
-
-* ECR Full Access (or limited required actions)
-
+```
+sudo apt install awscli -y
+aws --version
+aws configure
+```
 ---
-
-## 🧪 Testing
-
-1. Commit code → Jenkins triggers build
-2. Image pushed to ECR
-3. Lambda triggered automatically
-4. Data stored in DynamoDB
-5. Email notification received
-
+### Step 5: Create Amazon ECR Repository
 ---
-
-## ❗ Common Issues & Fixes
-
-| Issue                    | Fix                          |
-| ------------------------ | ---------------------------- |
-| Docker permission denied | Add user to docker group     |
-| ECR push fails           | Configure AWS credentials    |
-| DynamoDB error           | Ensure `image_tag` is String |
-| No notification          | Confirm SNS email            |
-
+```
+aws ecr create-repository --repository-name devops-demo --region us-east-1
+```
+Repository URI Example:
+```
+492711554489.dkr.ecr.us-east-1.amazonaws.com/devops-demo
+```
 ---
-
-## 🎯 Outcome
-
-* Fully automated CI/CD pipeline
-* Real-time event-driven processing
-* Logging + notifications
-
-
+### Step 6 :Lambda
+---
+**Triggered after image push**
+```
+image_tag
+timestamp
+repository
+```
+---
+### Stap 7: DynamoDB
+---
+- Table: ecr-deployments123
+- Partition key: timestamp
+- Sort key: repositery
+---
+### Stap 8 : Amazon SNS
+---
+- SNS is used to send notifications after Lambda execution.
+---
+## IMAGES
+### Jenkins Pipeline Success
+---
+![](<images/CICD run.png>)
+---
+### Docker Image Build
+---
+![alt text](images/image.png)
+---
+### ECR Image
+---
+![alt text](images/ECR_image.png)
+---
+### Application Running
+---
+![alt text](<images/application deploy.png>)
+---
+### SNS notifications
+---
+![alt text](images/notification.jpeg)
